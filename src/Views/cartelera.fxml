@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<VBox alignment="CENTER" spacing="20" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Controllers.SeleccionEspectaculosController">
+    <Text text="Cartelera de Espectáculos" style="-fx-font-size: 24px;"/>
+
+    <ComboBox fx:id="espectaculosComboBox" promptText="Seleccione un espectáculo"/>
+
+    <Button text="Seleccionar" onAction="#irAReservas"/>
+</VBox>
