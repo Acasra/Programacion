@@ -1,4 +1,4 @@
-package Controllers;  // Cambiado a "Controllers" con mayúscula para coincidir con tu estructura
+package Controllers;
 
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -40,8 +40,9 @@ public class LoginController {
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
+                int idUsuario = rs.getInt("ID_USUARIO");
                 System.out.println("Login exitoso");
-                goToCartelera();
+                goToCartelera(idUsuario);
             } else {
                 System.out.println("Credenciales incorrectas");
             }
@@ -61,8 +62,13 @@ public class LoginController {
         stage.setTitle("Registro de Usuario");
     }
 
-    private void goToCartelera() throws IOException {
-        Parent root = FXMLLoader.load(getClass().getResource("/views/cartelera.fxml"));
+    private void goToCartelera(int idUsuario) throws IOException {
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/views/cartelera.fxml"));
+        Parent root = loader.load();
+
+        SeleccionEspectaculosController controller = loader.getController();
+        controller.setIdUsuario(idUsuario);
+
         Stage stage = (Stage) loginButton.getScene().getWindow();
         stage.setScene(new Scene(root));
         stage.setTitle("Cartelera de Espectáculos");

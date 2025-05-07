@@ -1,5 +1,6 @@
 package Controllers;
 
+import DataBase.ConexionBBDD;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -19,6 +20,12 @@ public class SeleccionEspectaculosController {
     @FXML
     private ComboBox<String> espectaculosComboBox;
 
+    private int idUsuario;
+
+    public void setIdUsuario(int idUsuario) {
+        this.idUsuario = idUsuario;
+    }
+
     @FXML
     public void initialize() {
         cargarEspectaculos();
@@ -27,7 +34,7 @@ public class SeleccionEspectaculosController {
     private void cargarEspectaculos() {
         List<String> espectaculos = new ArrayList<>();
         espectaculos.add("Cars");
-        espectaculos.add("Dragon Ball");
+        espectaculos.add("Dragon Ball Super");
         espectaculos.add("Spiderman");
         espectaculos.add("Frozen");
 
@@ -41,13 +48,31 @@ public class SeleccionEspectaculosController {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/views/reservas.fxml"));
             Parent root = loader.load();
 
-            // Pasar el espectáculo seleccionado al controlador de reservas
             ReservasController reservasController = loader.getController();
-            reservasController.setEspectaculo(espectaculoSeleccionado);
+
+            int idEspectaculo = obtenerIdEspectaculo(espectaculoSeleccionado);
+            reservasController.inicializarDatos(idUsuario, idEspectaculo);
 
             Stage stage = (Stage) espectaculosComboBox.getScene().getWindow();
             stage.setScene(new Scene(root));
             stage.setTitle("Reservas para " + espectaculoSeleccionado);
         }
+    }
+
+    private int obtenerIdEspectaculo(String nombre) {
+        int id = -1;
+        try (Connection conn = ConexionBBDD.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(
+                     "SELECT id_espectaculo FROM Programacion.ESPECTACULOS WHERE nombre = ?")) {
+
+            stmt.setString(1, nombre);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                id = rs.getInt("id_espectaculo");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return id;
     }
 }

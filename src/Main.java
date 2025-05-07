@@ -12,7 +12,7 @@ public class Main extends Application {
         // Cargar la vista de login
         Parent root = FXMLLoader.load(getClass().getResource("/views/login.fxml"));
         Scene scene = new Scene(root);
-        stage.setTitle("Sistema de Reservas de Teatro - Login");
+        stage.setTitle("Inicia Sesión");
         stage.setScene(scene);
         stage.show();
     }
