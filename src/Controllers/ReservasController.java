@@ -11,15 +11,22 @@ import DataBase.ConexionBBDD;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.io.IOException;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
 
 public class ReservasController {
     @FXML private GridPane butacasGrid;
     @FXML private Label tituloEspectaculo;
     @FXML private Label butacasSeleccionadasLabel;
+    @FXML private Label precioTotalLabel;
 
     private int idUsuario = -1;
     private int idEspectaculo = -1;
     private List<Integer> butacasSeleccionadas = new ArrayList<>();
+    private double precioTotal = 0;
 
     public void inicializarDatos(int idUsuario, int idEspectaculo) {
         this.idUsuario = idUsuario;
@@ -48,9 +55,13 @@ public class ReservasController {
                    WHEN r.id_reserva IS NOT NULL AND r.id_usuario = ? THEN 'TU_RESERVA'
                    WHEN r.id_reserva IS NOT NULL THEN 'OCUPADA'
                    ELSE 'DISPONIBLE' 
-               END as estado
+               END as estado, 
+               CASE 
+                   WHEN b.tipo = 'VIP' THEN 15.00 
+                   ELSE 10.00 
+               END as precio
         FROM Programacion.BUTACAS b
-        LEFT JOIN Programacion.RESERVAS r ON b.id_butaca = r.id_butaca AND r.id_espectaculo = ?
+        LEFT JOIN Programacion.RESERVAS r ON b.id_butaca = r.id_butaca AND r.id_espectaculo = ? 
         """;
 
         try (Connection conn = ConexionBBDD.getConnection();
@@ -66,6 +77,7 @@ public class ReservasController {
                 int columna = rs.getInt("columna");
                 String tipo = rs.getString("tipo");
                 String estado = rs.getString("estado");
+                double precio = rs.getDouble("precio");
 
                 Button butaca = new Button(fila + "-" + columna + "\n" + tipo);
                 butaca.setPrefSize(60, 60);
@@ -87,9 +99,9 @@ public class ReservasController {
                         } else {
                             butaca.setStyle("-fx-background-color: green; -fx-text-fill: white;");
                         }
-                        butaca.setOnAction(event -> seleccionarButaca(butaca, idButaca));
+                        butaca.setOnAction(event -> seleccionarButaca(butaca, idButaca, precio));
                 }
-                butacasGrid.add(butaca, columna-1, fila-1);
+                butacasGrid.add(butaca, columna - 1, fila - 1);
             }
         } catch (SQLException e) {
             mostrarAlerta("Error", "No se pudieron cargar las butacas: " + e.getMessage());
@@ -97,7 +109,7 @@ public class ReservasController {
         }
     }
 
-    private void seleccionarButaca(Button butaca, int idButaca) {
+    private void seleccionarButaca(Button butaca, int idButaca, double precio) {
         if (butacasSeleccionadas.contains(idButaca)) {
             // Deseleccionar
             String tipo = butaca.getText().split("\n")[1];
@@ -107,13 +119,15 @@ public class ReservasController {
                 butaca.setStyle("-fx-background-color: green; -fx-text-fill: white;");
             }
             butacasSeleccionadas.remove(Integer.valueOf(idButaca));
+            precioTotal -= precio; // Restar el precio
         } else {
             if (butacasSeleccionadas.size() < 4) {
-                // Verificar que no exceda el límite total de 4
+                // Verificar que no exceda el límite de 4
                 try (Connection conn = ConexionBBDD.getConnection()) {
                     if (puedeReservarMas(conn)) {
                         butaca.setStyle("-fx-background-color: blue; -fx-text-fill: white;");
                         butacasSeleccionadas.add(idButaca);
+                        precioTotal += precio; // Sumar el precio
                     } else {
                         mostrarAlerta("Límite alcanzado",
                                 "Ya tienes 4 butacas reservadas en este espectáculo.\n" +
@@ -128,6 +142,43 @@ public class ReservasController {
             }
         }
         actualizarContador();
+        actualizarPrecioTotal();
+    }
+
+    private void actualizarContador() {
+        butacasSeleccionadasLabel.setText("Seleccionadas: " + butacasSeleccionadas.size() + "/4");
+    }
+
+    private void actualizarPrecioTotal() {
+        precioTotalLabel.setText("Precio Total: €" + String.format("%.2f", precioTotal));
+    }
+
+    private boolean puedeReservarMas(Connection conn) throws SQLException {
+        String sql = """
+        SELECT COUNT(*) FROM Programacion.RESERVAS 
+        WHERE ID_USUARIO = ? AND ID_ESPECTACULO = ? 
+        AND ESTADO = 'RESERVADA'
+        """;
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idUsuario);
+            stmt.setInt(2, idEspectaculo);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                int reservasActuales = rs.getInt(1);
+                return (reservasActuales + butacasSeleccionadas.size()) <= 4;
+            }
+        }
+        return false;
+    }
+
+    private void mostrarAlerta(String titulo, String mensaje) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(titulo);
+        alert.setHeaderText(null);
+        alert.setContentText(mensaje);
+        alert.showAndWait();
     }
 
     @FXML
@@ -173,6 +224,7 @@ public class ReservasController {
             conn.commit();
             mostrarAlerta("Éxito", "Reserva confirmada para " + butacasSeleccionadas.size() + " butacas");
             butacasSeleccionadas.clear();
+            precioTotal = 0;
             cargarButacas();
         } catch (SQLException e) {
             mostrarAlerta("Error", "Error al reservar: " + e.getMessage());
@@ -180,19 +232,10 @@ public class ReservasController {
         }
     }
 
-    private boolean validarUsuarioYEspectaculo(Connection conn) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM Programacion.USUARIOS WHERE ID_USUARIO = ?";
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, idUsuario);
-            ResultSet rs = stmt.executeQuery();
-            return rs.next() && rs.getInt(1) > 0;
-        }
-    }
-
     private boolean validarButacaDisponible(Connection conn, int idButaca) throws SQLException {
         String sql = """
         SELECT COUNT(*) FROM Programacion.BUTACAS b
-        LEFT JOIN Programacion.RESERVAS r ON b.ID_BUTACA = r.ID_BUTACA AND r.ID_ESPECTACULO = ?
+        LEFT JOIN Programacion.RESERVAS r ON b.ID_BUTACA = r.ID_BUTACA AND r.ID_ESPECTACULO = ? 
         WHERE b.ID_BUTACA = ? AND (r.ID_RESERVA IS NULL OR r.ESTADO = 'CANCELADA')
         """;
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -203,65 +246,19 @@ public class ReservasController {
         }
     }
 
-    private void actualizarContador() {
-        butacasSeleccionadasLabel.setText("Seleccionadas: " + butacasSeleccionadas.size() + "/4");
-    }
+    @FXML
+    private void volverACartelera() throws IOException {
+        // Cargar la escena de la cartelera
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/views/cartelera.fxml"));
+        Parent root = loader.load();
 
-    private boolean puedeReservarMas(Connection conn) throws SQLException {
-        String sql = """
-        SELECT COUNT(*) FROM Programacion.RESERVAS 
-        WHERE ID_USUARIO = ? AND ID_ESPECTACULO = ? 
-        AND ESTADO = 'RESERVADA'
-        """;
+        // Obtener el controlador de la cartelera
+        SeleccionEspectaculosController controller = loader.getController();
+        controller.setIdUsuario(idUsuario);  // Pasar el idUsuario si es necesario
 
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, idUsuario);
-            stmt.setInt(2, idEspectaculo);
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                int reservasActuales = rs.getInt(1);
-                return (reservasActuales + butacasSeleccionadas.size()) <= 4;
-            }
-        }
-        return false;
-    }
-
-    private void mostrarAlerta(String titulo, String mensaje) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle(titulo);
-        alert.setHeaderText(null);
-        alert.setContentText(mensaje);
-        alert.showAndWait();
-    }
-
-    public void setEspectaculo(String nombreEspectaculo) {
-        try (Connection conn = ConexionBBDD.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(
-                     "SELECT id_espectaculo FROM Programacion.ESPECTACULOS WHERE nombre = ?")) {
-
-            stmt.setString(1, nombreEspectaculo);
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                this.idEspectaculo = rs.getInt("id_espectaculo");
-                tituloEspectaculo.setText("Reservas para: " + nombreEspectaculo);
-
-                // Verificar límite de reservas
-                if (!puedeReservarMas(conn)) {
-                    mostrarAlerta("Límite alcanzado",
-                            "Ya has reservado el máximo de 4 butacas para este espectáculo");
-                }
-
-                cargarButacas();
-            } else {
-                mostrarAlerta("Error", "Espectáculo no encontrado");
-            }
-        } catch (SQLException e) {
-            mostrarAlerta("Error BD", "Error al buscar espectáculo: " + e.getMessage());
-            e.printStackTrace();
-        }
-        butacasSeleccionadas.clear();
-        actualizarContador();
+        // Cambiar la escena
+        Stage stage = (Stage) butacasGrid.getScene().getWindow();
+        stage.setScene(new Scene(root));
+        stage.setTitle("Cartelera de Espectáculos");
     }
 }
