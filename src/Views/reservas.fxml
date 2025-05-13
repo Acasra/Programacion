@@ -1,21 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.VBox?>
 
-<VBox xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="Controllers.ReservasController" spacing="10" alignment="TOP_CENTER">
+<VBox alignment="TOP_CENTER" prefHeight="600.0" prefWidth="800.0" spacing="10" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Controllers.ReservasController">
 
-    <Label fx:id="tituloEspectaculo" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
-    <Label fx:id="butacasSeleccionadasLabel" style="-fx-font-size: 14px;"/>
+    <Label fx:id="tituloEspectaculo" style="-fx-font-size: 18px; -fx-font-weight: bold;" />
+    <Label fx:id="butacasSeleccionadasLabel" style="-fx-font-size: 14px;" />
 
     <!-- 🔧 Este es el Label que te falta -->
     <Label fx:id="precioTotalLabel" style="-fx-font-size: 14px; -fx-text-fill: green;" />
 
     <ScrollPane fitToWidth="true">
-        <GridPane fx:id="butacasGrid" hgap="5" vgap="5" alignment="CENTER"/>
+        <GridPane fx:id="butacasGrid" alignment="CENTER" hgap="5" vgap="5" />
     </ScrollPane>
 
-    <Button text="Volver a la Cartelera" onAction="#volverACartelera" style="-fx-font-size: 14px;"/>
-    <Button text="Confirmar Reserva" onAction="#confirmarReserva" style="-fx-font-size: 14px;"/>
+    <Button onAction="#volverACartelera" style="-fx-font-size: 14px;" text="Volver a la Cartelera" />
+    <Button onAction="#confirmarReserva" style="-fx-font-size: 14px;" text="Confirmar Reserva" />
 </VBox>
