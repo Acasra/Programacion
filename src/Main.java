@@ -14,6 +14,7 @@ public class Main extends Application {
         Scene scene = new Scene(root);
         stage.setTitle("Inicia Sesión");
         stage.setScene(scene);
+        stage.setResizable(false);
         stage.show();
     }
 
