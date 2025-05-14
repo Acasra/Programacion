@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Text?>
 
-<VBox alignment="CENTER" prefHeight="600.0" prefWidth="800.0" spacing="20" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Controllers.SeleccionEspectaculosController">
-    <Text style="-fx-font-size: 24px;" text="Cartelera de Espectáculos" />
+<VBox alignment="CENTER" prefHeight="600.0" prefWidth="800.0" spacing="20" style="-fx-background-color: grey;" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Controllers.SeleccionEspectaculosController">
+    <Text style="-fx-font-size: 24px;" text="Cartelera de Espectáculos" textAlignment="CENTER" wrappingWidth="269.98828125">
+      <VBox.margin>
+         <Insets />
+      </VBox.margin></Text>
+    <ImageView fx:id="imagenEspectaculo" fitHeight="293.0" fitWidth="200.0" pickOnBounds="true" preserveRatio="true" />
 
     <ComboBox fx:id="espectaculosComboBox" promptText="Seleccione un espectáculo" />
 
