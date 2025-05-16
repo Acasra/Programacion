@@ -6,15 +6,13 @@
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.VBox?>
 
-<VBox alignment="TOP_CENTER" prefHeight="600.0" prefWidth="800.0" spacing="10" style="-fx-background-color: #D52B1E;" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Controllers.ReservasController">
+<VBox alignment="TOP_CENTER" prefHeight="600.0" prefWidth="800.0" spacing="10" style="-fx-background-color: grey;" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Controllers.ReservasController">
 
     <Label fx:id="tituloEspectaculo" style="-fx-font-size: 18px; -fx-font-weight: bold;" />
     <Label fx:id="butacasSeleccionadasLabel" style="-fx-font-size: 14px;" />
-
-    <!-- 🔧 Este es el Label que te falta -->
     <Label fx:id="precioTotalLabel" style="-fx-font-size: 14px; -fx-text-fill: green;" />
 
-    <ScrollPane fitToWidth="true">
+    <ScrollPane fitToWidth="true" style="-fx-background-color: grey;">
         <GridPane fx:id="butacasGrid" alignment="CENTER" hgap="5" vgap="5" />
     </ScrollPane>
 

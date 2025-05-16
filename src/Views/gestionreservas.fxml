@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.text.*?>
+
+<?import javafx.scene.control.cell.PropertyValueFactory?>
+<VBox xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="Controllers.GestionReservasController"
+      style="-fx-background-color: #f4f4f4; -fx-padding: 20;"
+      spacing="15">
+
+    <Label text="Mis Reservas" style="-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #D52B1E;"/>
+
+    <TableView fx:id="tablaReservas" style="-fx-background-color: white;">
+        <columns>
+            <TableColumn text="Espectáculo" prefWidth="200">
+                <cellValueFactory><PropertyValueFactory property="nombreEspectaculo"/></cellValueFactory>
+            </TableColumn>
+            <TableColumn text="Butaca" prefWidth="80">
+                <cellValueFactory><PropertyValueFactory property="butaca"/></cellValueFactory>
+            </TableColumn>
+            <TableColumn text="Tipo" prefWidth="80">
+                <cellValueFactory><PropertyValueFactory property="tipoButaca"/></cellValueFactory>
+            </TableColumn>
+            <TableColumn text="Precio" prefWidth="80">
+                <cellValueFactory><PropertyValueFactory property="precio"/></cellValueFactory>
+            </TableColumn>
+            <TableColumn text="Estado" prefWidth="100">
+                <cellValueFactory><PropertyValueFactory property="estado"/></cellValueFactory>
+            </TableColumn>
+        </columns>
+    </TableView>
+
+    <HBox spacing="10" alignment="CENTER">
+        <Button text="Cancelar Reserva" onAction="#cancelarReserva"
+                style="-fx-background-color: #D52B1E; -fx-text-fill: white; -fx-font-weight: bold;"/>
+        <Button text="Volver" onAction="#volverACartelera"
+                style="-fx-background-color: grey; -fx-text-fill: white;"/>
+    </HBox>
+
+</VBox>

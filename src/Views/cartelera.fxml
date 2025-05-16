@@ -17,4 +17,5 @@
     <ComboBox fx:id="espectaculosComboBox" promptText="Seleccione un espectáculo" />
 
     <Button onAction="#irAReservas" text="Seleccionar" />
+    <Button onAction="#irAGestionReservas" text="Mis Reservas" />
 </VBox>

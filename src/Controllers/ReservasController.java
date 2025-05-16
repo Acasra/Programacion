@@ -6,6 +6,8 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.GridPane;
 import javafx.scene.control.Button;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import DataBase.ConexionBBDD;
 
 import java.sql.*;
@@ -28,6 +30,12 @@ public class ReservasController {
     private List<Integer> butacasSeleccionadas = new ArrayList<>();
     private double precioTotal = 0;
 
+    // Imágenes para las butacas
+    private final Image imgLibre = new Image(getClass().getResourceAsStream("/Resources/Butaca_Libre.png"));
+    private final Image imgOcupada = new Image(getClass().getResourceAsStream("/Resources/Butaca_ocupada.png"));
+    private final Image imgSeleccionada = new Image(getClass().getResourceAsStream("/Resources/Butaca_seleccionada.png"));
+    private final Image imgVIP = new Image(getClass().getResourceAsStream("/Resources/Butaca_vip.png"));
+
     public void inicializarDatos(int idUsuario, int idEspectaculo) {
         this.idUsuario = idUsuario;
         this.idEspectaculo = idEspectaculo;
@@ -39,11 +47,6 @@ public class ReservasController {
 
         cargarButacas();
         actualizarContador();
-    }
-
-    @FXML
-    public void initialize() {
-        // No hace nada hasta que se llamen los datos desde otro controlador
     }
 
     private void cargarButacas() {
@@ -79,27 +82,35 @@ public class ReservasController {
                 String estado = rs.getString("estado");
                 double precio = rs.getDouble("precio");
 
-                Button butaca = new Button(fila + "-" + columna + "\n" + tipo);
-                butaca.setPrefSize(60, 60);
+                ImageView imageView = new ImageView();
+                imageView.setFitWidth(40);
+                imageView.setFitHeight(40);
+
+                Button butaca = new Button();
+                butaca.setGraphic(imageView);
+                butaca.setPrefSize(50, 50);
+                butaca.setStyle("-fx-background-color: transparent;");
 
                 switch (estado) {
                     case "TU_RESERVA":
-                        butaca.setStyle("-fx-background-color: purple; -fx-text-fill: white;");
+                        imageView.setImage(imgOcupada);
                         butaca.setDisable(true);
                         butaca.setTooltip(new Tooltip("Ya reservada por ti"));
                         break;
                     case "OCUPADA":
-                        butaca.setStyle("-fx-background-color: red; -fx-text-fill: white;");
+                        imageView.setImage(imgOcupada);
                         butaca.setDisable(true);
                         butaca.setTooltip(new Tooltip("Ocupada por otro usuario"));
                         break;
                     default:
                         if (tipo.equals("VIP")) {
-                            butaca.setStyle("-fx-background-color: gold; -fx-text-fill: black;");
+                            imageView.setImage(imgVIP);
+                            butaca.setTooltip(new Tooltip("Butaca VIP - €15.00"));
                         } else {
-                            butaca.setStyle("-fx-background-color: green; -fx-text-fill: white;");
+                            imageView.setImage(imgLibre);
+                            butaca.setTooltip(new Tooltip("Butaca Normal - €10.00"));
                         }
-                        butaca.setOnAction(event -> seleccionarButaca(butaca, idButaca, precio));
+                        butaca.setOnAction(event -> seleccionarButaca(butaca, imageView, idButaca, precio, tipo));
                 }
                 butacasGrid.add(butaca, columna - 1, fila - 1);
             }
@@ -109,25 +120,23 @@ public class ReservasController {
         }
     }
 
-    private void seleccionarButaca(Button butaca, int idButaca, double precio) {
+    private void seleccionarButaca(Button butaca, ImageView imageView, int idButaca, double precio, String tipo) {
         if (butacasSeleccionadas.contains(idButaca)) {
             // Deseleccionar
-            String tipo = butaca.getText().split("\n")[1];
-            if (tipo.equals("VIP")) {
-                butaca.setStyle("-fx-background-color: gold; -fx-text-fill: black;");
-            } else {
-                butaca.setStyle("-fx-background-color: green; -fx-text-fill: white;");
-            }
             butacasSeleccionadas.remove(Integer.valueOf(idButaca));
-            precioTotal -= precio; // Restar el precio
+            precioTotal -= precio;
+            if (tipo.equals("VIP")) {
+                imageView.setImage(imgVIP);
+            } else {
+                imageView.setImage(imgLibre);
+            }
         } else {
             if (butacasSeleccionadas.size() < 4) {
-                // Verificar que no exceda el límite de 4
                 try (Connection conn = ConexionBBDD.getConnection()) {
                     if (puedeReservarMas(conn)) {
-                        butaca.setStyle("-fx-background-color: blue; -fx-text-fill: white;");
                         butacasSeleccionadas.add(idButaca);
-                        precioTotal += precio; // Sumar el precio
+                        precioTotal += precio;
+                        imageView.setImage(imgSeleccionada);
                     } else {
                         mostrarAlerta("Límite alcanzado",
                                 "Ya tienes 4 butacas reservadas en este espectáculo.\n" +
@@ -167,7 +176,7 @@ public class ReservasController {
 
             if (rs.next()) {
                 int reservasActuales = rs.getInt(1);
-                return (reservasActuales + butacasSeleccionadas.size()) <= 4;
+                return (reservasActuales + butacasSeleccionadas.size()) < 4;
             }
         }
         return false;
@@ -191,7 +200,6 @@ public class ReservasController {
         try (Connection conn = ConexionBBDD.getConnection()) {
             conn.setAutoCommit(false);
 
-            // Verificar límite de 4 butacas por usuario y espectáculo
             if (!puedeReservarMas(conn)) {
                 mostrarAlerta("Límite alcanzado",
                         "Ya has reservado el máximo de 4 butacas para este espectáculo.\n" +
@@ -199,7 +207,6 @@ public class ReservasController {
                 return;
             }
 
-            // Verificar disponibilidad de butacas
             for (int idButaca : butacasSeleccionadas) {
                 if (!validarButacaDisponible(conn, idButaca)) {
                     conn.rollback();
@@ -208,7 +215,6 @@ public class ReservasController {
                 }
             }
 
-            // Procesar reservas
             for (int idButaca : butacasSeleccionadas) {
                 String sql = "INSERT INTO Programacion.RESERVAS (ID_RESERVA, ID_ESPECTACULO, ID_BUTACA, ID_USUARIO, ESTADO) " +
                         "VALUES (Programacion.SEQ_RESERVAS.NEXTVAL, ?, ?, ?, 'RESERVADA')";
@@ -248,15 +254,12 @@ public class ReservasController {
 
     @FXML
     private void volverACartelera() throws IOException {
-        // Cargar la escena de la cartelera
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/views/cartelera.fxml"));
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/Views/cartelera.fxml"));
         Parent root = loader.load();
 
-        // Obtener el controlador de la cartelera
         SeleccionEspectaculosController controller = loader.getController();
-        controller.setIdUsuario(idUsuario);  // Pasar el idUsuario si es necesario
+        controller.setIdUsuario(idUsuario);
 
-        // Cambiar la escena
         Stage stage = (Stage) butacasGrid.getScene().getWindow();
         stage.setScene(new Scene(root));
         stage.setTitle("Cartelera de Espectáculos");

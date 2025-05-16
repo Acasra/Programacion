@@ -5,6 +5,7 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -115,6 +116,32 @@ public class SeleccionEspectaculosController {
             stage.setScene(new Scene(root));
             stage.setTitle("Reservas para " + espectaculoSeleccionado);
         }
+    }
+    @FXML
+    private void irAGestionReservas() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/Views/gestionreservas.fxml"));
+            Parent root = loader.load();
+
+            GestionReservasController controller = loader.getController();
+            controller.setIdUsuario(idUsuario);
+
+            Stage stage = new Stage(); // Crear nueva ventana
+            stage.setScene(new Scene(root));
+            stage.setTitle("Mis Reservas");
+            stage.show();
+
+            // Opcional: cerrar la ventana actual si es necesario
+            // ((Stage) algunBotonExistente.getScene().getWindow()).close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            mostrarAlerta("Error", "No se pudo cargar la ventana de gestión de reservas");
+        }
+    }
+
+
+
+    private void mostrarAlerta(String error, String s) {
     }
 
     private int obtenerIdEspectaculo(String nombre) {
