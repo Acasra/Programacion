@@ -30,7 +30,6 @@ public class ReservasController {
     private List<Integer> butacasSeleccionadas = new ArrayList<>();
     private double precioTotal = 0;
 
-    // Imágenes para las butacas
     private final Image imgLibre = new Image(getClass().getResourceAsStream("/Resources/Butaca_Libre.png"));
     private final Image imgOcupada = new Image(getClass().getResourceAsStream("/Resources/Butaca_ocupada.png"));
     private final Image imgSeleccionada = new Image(getClass().getResourceAsStream("/Resources/Butaca_seleccionada.png"));
@@ -53,19 +52,23 @@ public class ReservasController {
         butacasGrid.getChildren().clear();
 
         String query = """
-        SELECT b.id_butaca, b.fila, b.columna, b.tipo,
-               CASE 
-                   WHEN r.id_reserva IS NOT NULL AND r.id_usuario = ? THEN 'TU_RESERVA'
-                   WHEN r.id_reserva IS NOT NULL THEN 'OCUPADA'
-                   ELSE 'DISPONIBLE' 
-               END as estado, 
-               CASE 
-                   WHEN b.tipo = 'VIP' THEN 15.00 
-                   ELSE 10.00 
-               END as precio
-        FROM Programacion.BUTACAS b
-        LEFT JOIN Programacion.RESERVAS r ON b.id_butaca = r.id_butaca AND r.id_espectaculo = ? 
-        """;
+SELECT b.id_butaca, b.fila, b.columna, b.tipo,
+       CASE 
+           WHEN r.id_reserva IS NOT NULL AND r.id_usuario = ? THEN 'TU_RESERVA'
+           WHEN r.id_reserva IS NOT NULL THEN 'OCUPADA'
+           ELSE 'DISPONIBLE' 
+       END as estado, 
+       CASE 
+           WHEN b.tipo = 'VIP' THEN 15.00 
+           ELSE 10.00 
+       END as precio
+FROM Programacion.BUTACAS b
+LEFT JOIN Programacion.RESERVAS r 
+  ON b.id_butaca = r.id_butaca 
+  AND r.id_espectaculo = ? 
+  AND r.estado = 'RESERVADA'
+""";
+
 
         try (Connection conn = ConexionBBDD.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
@@ -94,8 +97,16 @@ public class ReservasController {
                 switch (estado) {
                     case "TU_RESERVA":
                         imageView.setImage(imgOcupada);
-                        butaca.setDisable(true);
-                        butaca.setTooltip(new Tooltip("Ya reservada por ti"));
+                        butaca.setTooltip(new Tooltip("Reservada por ti. Click para cancelar"));
+                        butaca.setOnAction(e -> {
+                            boolean exito = cancelarReserva(idButaca);
+                            if (exito) {
+                                mostrarAlerta("Reserva cancelada", "Has cancelado la reserva de la butaca");
+                                cargarButacas();
+                            } else {
+                                mostrarAlerta("Error", "No se pudo cancelar la reserva");
+                            }
+                        });
                         break;
                     case "OCUPADA":
                         imageView.setImage(imgOcupada);
@@ -120,9 +131,31 @@ public class ReservasController {
         }
     }
 
+    private boolean cancelarReserva(int idButaca) {
+        String sql = """
+        UPDATE Programacion.RESERVAS
+        SET ESTADO = 'CANCELADA'
+        WHERE ID_BUTACA = ? AND ID_USUARIO = ? AND ID_ESPECTACULO = ? AND ESTADO = 'RESERVADA'
+        """;
+
+        try (Connection conn = ConexionBBDD.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setInt(1, idButaca);
+            stmt.setInt(2, idUsuario);
+            stmt.setInt(3, idEspectaculo);
+
+            int filasActualizadas = stmt.executeUpdate();
+            return filasActualizadas > 0;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     private void seleccionarButaca(Button butaca, ImageView imageView, int idButaca, double precio, String tipo) {
         if (butacasSeleccionadas.contains(idButaca)) {
-            // Deseleccionar
             butacasSeleccionadas.remove(Integer.valueOf(idButaca));
             precioTotal -= precio;
             if (tipo.equals("VIP")) {
@@ -164,10 +197,10 @@ public class ReservasController {
 
     private boolean puedeReservarMas(Connection conn) throws SQLException {
         String sql = """
-        SELECT COUNT(*) FROM Programacion.RESERVAS 
-        WHERE ID_USUARIO = ? AND ID_ESPECTACULO = ? 
-        AND ESTADO = 'RESERVADA'
-        """;
+    SELECT COUNT(*) FROM Programacion.RESERVAS 
+    WHERE ID_USUARIO = ? AND ID_ESPECTACULO = ? 
+    AND ESTADO = 'RESERVADA'
+    """;
 
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setInt(1, idUsuario);
@@ -176,11 +209,13 @@ public class ReservasController {
 
             if (rs.next()) {
                 int reservasActuales = rs.getInt(1);
-                return (reservasActuales + butacasSeleccionadas.size()) < 4;
+                // Cambiar < 4 por <= 4 para permitir hasta 4 butacas en total
+                return (reservasActuales + butacasSeleccionadas.size()) <= 4;
             }
         }
         return false;
     }
+
 
     private void mostrarAlerta(String titulo, String mensaje) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);

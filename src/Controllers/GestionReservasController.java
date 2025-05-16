@@ -16,8 +16,14 @@ public class GestionReservasController {
     private TableView<Reserva> tablaReservas;
 
     private int idUsuario;
-
     private final ObservableList<Reserva> listaReservas = FXCollections.observableArrayList();
+
+    @FXML
+    public void initialize() {
+        // Configurar listener para actualizaciones
+        tablaReservas.getSelectionModel().selectedItemProperty().addListener(
+                (obs, oldSelection, newSelection) -> actualizarInterfaz());
+    }
 
     public void setIdUsuario(int idUsuario) {
         this.idUsuario = idUsuario;
@@ -28,17 +34,17 @@ public class GestionReservasController {
         listaReservas.clear();
 
         String sql = """
-        SELECT r.id_reserva, r.id_espectaculo, r.id_butaca, r.id_usuario, r.estado,
-               e.nombre AS nombreEspectaculo,
-               e.precio_base,
-               e.precio_vip,
-               b.fila || b.columna AS butaca,
-               b.tipo AS tipoButaca
-        FROM Programacion.RESERVAS r
-        JOIN Programacion.ESPECTACULOS e ON r.id_espectaculo = e.id_espectaculo
-        JOIN Programacion.BUTACAS b ON r.id_butaca = b.id_butaca
-        WHERE r.id_usuario = ?
-        """;
+            SELECT r.id_reserva, r.id_espectaculo, r.id_butaca, r.id_usuario, r.estado,
+                   e.nombre AS nombreEspectaculo,
+                   b.fila || b.columna AS butaca,
+                   b.tipo AS tipoButaca,
+                   CASE WHEN b.tipo = 'VIP' THEN e.precio_vip ELSE e.precio_base END AS precio
+            FROM Programacion.RESERVAS r
+            JOIN Programacion.ESPECTACULOS e ON r.id_espectaculo = e.id_espectaculo
+            JOIN Programacion.BUTACAS b ON r.id_butaca = b.id_butaca
+            WHERE r.id_usuario = ? AND r.estado = 'RESERVADA'
+            ORDER BY r.id_reserva DESC
+            """;
 
         try (Connection conn = ConexionBBDD.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -47,14 +53,6 @@ public class GestionReservasController {
             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
-                String tipo = rs.getString("tipoButaca");
-                double precio;
-                if ("VIP".equalsIgnoreCase(tipo)) {
-                    precio = rs.getDouble("precio_vip");
-                } else {
-                    precio = rs.getDouble("precio_base");
-                }
-
                 Reserva reserva = new Reserva(
                         rs.getInt("id_reserva"),
                         rs.getInt("id_espectaculo"),
@@ -63,8 +61,8 @@ public class GestionReservasController {
                         rs.getString("estado"),
                         rs.getString("nombreEspectaculo"),
                         rs.getString("butaca"),
-                        tipo,
-                        precio
+                        rs.getString("tipoButaca"),
+                        rs.getDouble("precio")
                 );
                 listaReservas.add(reserva);
             }
@@ -72,59 +70,97 @@ public class GestionReservasController {
             tablaReservas.setItems(listaReservas);
 
         } catch (SQLException e) {
+            mostrarAlerta("Error", "No se pudieron cargar las reservas: " + e.getMessage());
             e.printStackTrace();
-            mostrarAlerta("Error", "No se pudieron cargar las reservas.");
         }
     }
-
-
-
 
     @FXML
     private void cancelarReserva() {
-        Reserva seleccionada = tablaReservas.getSelectionModel().getSelectedItem();
-        if (seleccionada == null) {
-            mostrarAlerta("Aviso", "Selecciona una reserva para cancelar.");
+        Reserva reservaSeleccionada = tablaReservas.getSelectionModel().getSelectedItem();
+
+        if (reservaSeleccionada == null) {
+            mostrarAlerta("Error", "Seleccione una reserva para cancelar");
             return;
         }
 
-        // Confirmar la acción con el usuario (opcional)
         Alert confirmacion = new Alert(Alert.AlertType.CONFIRMATION);
         confirmacion.setTitle("Confirmar cancelación");
         confirmacion.setHeaderText(null);
-        confirmacion.setContentText("¿Estás seguro de que quieres cancelar esta reserva?");
-        if (confirmacion.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
-            return;  // El usuario canceló la acción
-        }
+        confirmacion.setContentText("¿Está seguro que desea cancelar la reserva de " +
+                reservaSeleccionada.getNombreEspectaculo() + "?");
 
-        String sql = "UPDATE Programacion.RESERVAS SET estado = ? WHERE id_reserva = ?";
+        confirmacion.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                ejecutarCancelacion(reservaSeleccionada);
+            }
+        });
+    }
 
-        try (Connection conn = ConexionBBDD.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+    private void ejecutarCancelacion(Reserva reserva) {
+        try (Connection conn = ConexionBBDD.getConnection()) {
+            conn.setAutoCommit(false); // Iniciar transacción
 
-            stmt.setString(1, "cancelada"); // o el estado que uses para canceladas
-            stmt.setInt(2, seleccionada.getIdReserva());
-
-            int filasActualizadas = stmt.executeUpdate();
-
-            if (filasActualizadas > 0) {
-                mostrarAlerta("Éxito", "Reserva cancelada correctamente.");
-                cargarReservasUsuario(); // Recargar tabla para refrescar datos
-            } else {
-                mostrarAlerta("Error", "No se pudo cancelar la reserva.");
+            // 1. Verificar que la reserva existe y está activa
+            if (!validarReservaActiva(conn, reserva.getIdReserva())) {
+                mostrarAlerta("Error", "La reserva ya está cancelada o no existe");
+                return;
             }
 
+            // 2. Actualizar estado en la base de datos
+            String sql = "UPDATE PROGRAMACION.RESERVAS SET ESTADO = 'CANCELADA' WHERE ID_RESERVA = ? AND ESTADO = 'RESERVADA'";
+            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, reserva.getIdReserva());
+                int affectedRows = pstmt.executeUpdate();
+
+                if (affectedRows == 0) {
+                    conn.rollback();
+                    mostrarAlerta("Error", "No se pudo cancelar la reserva");
+                    return;
+                }
+            }
+
+            conn.commit(); // Confirmar cambios
+
+            // 3. Actualizar la interfaz
+            reserva.setEstado("CANCELADA");
+            listaReservas.remove(reserva); // Eliminar de la lista visible
+            tablaReservas.refresh();
+
+            mostrarAlerta("Éxito", "Reserva cancelada correctamente. Butaca liberada.");
+
+            // 🔁 NUEVO: Notificar que se ha liberado una butaca
+            notificarButacasActualizadas(); // <<--- implementa esto si quieres refrescar la interfaz de butacas
+
         } catch (SQLException e) {
+            mostrarAlerta("Error", "Error al cancelar reserva: " + e.getMessage());
             e.printStackTrace();
-            mostrarAlerta("Error", "Ocurrió un error al cancelar la reserva.");
         }
     }
 
+    // 🔁 MÉTODO OPCIONAL A IMPLEMENTAR EN TU CONTROLADOR PRINCIPAL
+    private void notificarButacasActualizadas() {
+        // Aquí podrías llamar a un método de otro controlador que recargue las butacas.
+        // Por ejemplo:
+        // PrincipalController.getInstance().actualizarButacas(idEspectaculo);
+    }
+
+    private boolean validarReservaActiva(Connection conn, int idReserva) throws SQLException {
+        String sql = "SELECT 1 FROM PROGRAMACION.RESERVAS WHERE ID_RESERVA = ? AND ESTADO = 'RESERVADA'";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, idReserva);
+            return stmt.executeQuery().next();
+        }
+    }
+
+    private void actualizarInterfaz() {
+        tablaReservas.refresh();
+    }
 
     @FXML
     private void volverACartelera() {
         Stage stage = (Stage) tablaReservas.getScene().getWindow();
-        stage.close(); // Cierra solo esta ventana (asumimos que hay una principal abierta)
+        stage.close();
     }
 
     private void mostrarAlerta(String titulo, String mensaje) {
