@@ -42,7 +42,7 @@ public class RegistroController {
             stmt.setString(3, password);
             stmt.executeUpdate();
 
-            // Volver al login después del registro
+            // Volver al login
             volverALogin();
         } catch (SQLException | IOException e) {
             e.printStackTrace();
