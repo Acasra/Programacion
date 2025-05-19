@@ -35,7 +35,7 @@ public class RegistroController {
         ConexionBBDD conexion = new ConexionBBDD();
 
         try (Connection conn = conexion.getConnection()) {
-            String sql = "INSERT INTO USUARIOS (nombre, email, contraseña) VALUES (?, ?, ?)";
+            String sql = "INSERT INTO Programacion.USUARIOS (nombre, email, contraseña) VALUES (?, ?, ?)";
             PreparedStatement stmt = conn.prepareStatement(sql);
             stmt.setString(1, nombre);
             stmt.setString(2, email);
